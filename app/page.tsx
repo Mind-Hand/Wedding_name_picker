@@ -62,10 +62,19 @@ export default function HomePage() {
     }
   }
 
-  const loadWinners = () => {
-    const savedWinners = localStorage.getItem("winners")
-    if (savedWinners) {
-      setWinners(JSON.parse(savedWinners))
+  const loadWinners = async () => {
+    try {
+      const response = await fetch("/api/winners")
+      if (response.ok) {
+        const data = await response.json()
+        setWinners(data.winners || [])
+      } else {
+        console.error("Failed to load winners from API")
+        setWinners([])
+      }
+    } catch (error) {
+      console.error("Error loading winners:", error)
+      setWinners([])
     }
   }
 
@@ -78,8 +87,8 @@ export default function HomePage() {
     try {
       const text =
         names.length === 2
-          ? `让幸运之神为新人送上祝福。恭喜${names[0]}和${names[1]}中奖！愿你们幸福美满！`
-          : `让幸运之神为新人送上祝福。恭喜${names[0]}中奖！愿你幸福美满！`
+          ? `让幸运之神为新人送上祝福。恭喜${names[0]}和${names[1]}中奖！`
+          : `让幸运之神为新人送上祝福。恭喜${names[0]}中奖！`
 
       const response = await fetch("/api/tts", {
         method: "POST",
@@ -133,8 +142,8 @@ export default function HomePage() {
     if ("speechSynthesis" in window) {
       const text =
         names.length === 2
-          ? `让幸运之神为新人送上祝福。恭喜${names[0]}和${names[1]}中奖！愿你们幸福美满！`
-          : `让幸运之神为新人送上祝福。恭喜${names[0]}中奖！愿你幸福美满！`
+          ? `让幸运之神为新人送上祝福。恭喜${names[0]}和${names[1]}中奖！`
+          : `让幸运之神为新人送上祝福。恭喜${names[0]}中奖！`
 
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = "zh-CN"
@@ -182,9 +191,33 @@ export default function HomePage() {
         setIsSpinning(false)
         setShowResult(true)
 
-        const newWinners = [...winners, ...finalNames]
-        setWinners(newWinners)
-        localStorage.setItem("winners", JSON.stringify(newWinners))
+        // Save winners to Redis via API
+        const saveWinners = async () => {
+          try {
+            const response = await fetch("/api/winners", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ winners: finalNames }),
+            })
+            
+            if (response.ok) {
+              const data = await response.json()
+              setWinners(data.winners || [...winners, ...finalNames])
+            } else {
+              console.error("Failed to save winners to API")
+              // Fallback to local state update
+              setWinners([...winners, ...finalNames])
+            }
+          } catch (error) {
+            console.error("Error saving winners:", error)
+            // Fallback to local state update
+            setWinners([...winners, ...finalNames])
+          }
+        }
+
+        saveWinners()
 
         setTimeout(() => {
           speakName(finalNames)
@@ -194,10 +227,26 @@ export default function HomePage() {
     }, 100)
   }
 
-  const resetWinners = () => {
+  const resetWinners = async () => {
     if (confirm("确定要重置所有中奖记录吗？")) {
-      setWinners([])
-      localStorage.removeItem("winners")
+      try {
+        const response = await fetch("/api/winners", {
+          method: "DELETE",
+        })
+        
+        if (response.ok) {
+          setWinners([])
+          console.log("Winners reset successfully in Redis")
+        } else {
+          console.error("Failed to reset winners in API")
+          // Still update local state as fallback
+          setWinners([])
+        }
+      } catch (error) {
+        console.error("Error resetting winners:", error)
+        // Still update local state as fallback
+        setWinners([])
+      }
     }
   }
 
