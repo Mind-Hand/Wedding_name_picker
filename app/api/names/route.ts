@@ -14,15 +14,14 @@ const DEFAULT_NAMES = [
 // 创建 Redis 连接
 async function getRedisClient() {
   try {
-    if (!process.env.REDIS_URL) {
+    if (!process.env.REDIS_REDIS_URL) {
       throw new Error('REDIS_URL environment variable is not set')
     }
     
     const client = createClient({ 
-      url: process.env.REDIS_URL,
+      url: process.env.REDIS_REDIS_URL,
       socket: {
-        connectTimeout: 5000,
-        lazyConnect: true
+        connectTimeout: 5000
       }
     })
     
